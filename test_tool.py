@@ -1,4 +1,4 @@
-from agentstack.tools.calculator import CalculatorTool
+from agentstack.tools.math.calculator import CalculatorTool
 from agentstack.tools.registry import ToolRegistry
 
 registry = ToolRegistry()

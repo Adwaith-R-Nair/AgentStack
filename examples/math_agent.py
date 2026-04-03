@@ -1,5 +1,5 @@
 from agentstack.models.mock_model import MockModel
-from agentstack.tools.calculator import CalculatorTool
+from agentstack.tools.math.calculator import CalculatorTool
 from agentstack.core.agent import Agent
 
 

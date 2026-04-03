@@ -1,4 +1,4 @@
-from .base_tool import BaseTool
+from agentstack.tools.base_tool import BaseTool
 
 
 class CalculatorTool(BaseTool):
