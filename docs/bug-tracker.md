@@ -21,6 +21,7 @@ Each bug entry should include:
 | Bug ID | Description | File | Code Snippet | Cause | Solution | Status |
 | ------ | ----------- | ---- | ------------ | ----- | -------- | ------ |
 | BUG-001 | MockModel kept repeating tool actions and never produced a final answer | `agentstack/models/mock_model.py` | — | Mock model did not detect Observation context | Added logic to detect "Observation:" and return Final Answer | Fixed |
+| BUG-002 | `agentstack.egg-info` folder was accidentally committed | `.gitignore` | — | `pip install -e .` generates egg-info metadata that was not excluded | Added `*.egg-info` to `.gitignore` and removed folder from git tracking | Resolved |
 
 ---
 
@@ -79,6 +80,54 @@ Added logic to detect `"Observation:"` in the response context and return a Fina
 
 ```
 Status: Fixed
+```
+
+---
+
+## Bug ID: BUG-002
+
+**Description**
+
+`agentstack.egg-info` folder was accidentally committed to the repository.
+
+---
+
+**File**
+
+```
+.gitignore
+```
+
+---
+
+**Code Snippet**
+
+— *(not applicable — git/config issue, no code snippet)*
+
+---
+
+**Cause**
+
+Running `pip install -e .` generates an `agentstack.egg-info` metadata directory locally. This folder was not listed in `.gitignore` and was inadvertently staged and committed.
+
+---
+
+**Solution**
+
+Added `*.egg-info` to `.gitignore` to prevent future commits, then removed the folder from git tracking without deleting it locally:
+
+```bash
+echo "*.egg-info/" >> .gitignore
+git rm -r --cached agentstack.egg-info
+git commit -m "fix: remove egg-info from tracking, update .gitignore"
+```
+
+---
+
+**Status**
+
+```
+Status: Resolved
 ```
 
 ---
