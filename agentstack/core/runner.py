@@ -1,4 +1,5 @@
 import typer
+import subprocess
 
 from agentstack.models.mock_model import MockModel
 from agentstack.tools.calculator import CalculatorTool
@@ -44,6 +45,16 @@ def version():
     """
 
     print("AgentStack v0.1.0")
+
+@app.command()
+def run(script: str):
+    """
+    Run an AgentStack example script.
+    """
+
+    print(f"\nRunning script: {script}\n")
+
+    subprocess.run(["python", script])
 
 
 if __name__ == "__main__":

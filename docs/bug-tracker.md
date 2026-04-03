@@ -20,7 +20,7 @@ Each bug entry should include:
 
 | Bug ID | Description | File | Code Snippet | Cause | Solution | Status |
 | ------ | ----------- | ---- | ------------ | ----- | -------- | ------ |
-| —      | —           | —    | —            | —     | —        | —      |
+| BUG-001 | MockModel kept repeating tool actions and never produced a final answer | `agentstack/models/mock_model.py` | — | Mock model did not detect Observation context | Added logic to detect "Observation:" and return Final Answer | Fixed |
 
 ---
 
@@ -34,71 +34,50 @@ When a bug is discovered, add a detailed entry below.
 
 **Description**
 
-Describe the issue clearly. Include when the bug occurs and what behavior is observed.
-
-Example:
-
-Agent fails to parse tool output when the LLM response format deviates from the expected structure.
+MockModel kept repeating tool actions and never produced a final answer.
 
 ---
 
 **File**
 
-Specify the file where the bug occurs.
-
-Example:
-
-```id="f2"
-agentstack/core/runner.py
+```
+agentstack/models/mock_model.py
 ```
 
 ---
 
 **Code Snippet**
 
-Include the problematic code.
+The fix — detecting `"Observation:"` and returning a Final Answer:
 
-Example:
+```python
+# If observation already exists, produce final answer
+if "Observation:" in prompt:
+    observation = prompt.split("Observation:")[-1].strip()
 
-```python id="f3"
-if "Action:" in response:
-    tool = extract_tool(response)
+    return f"""
+Thought: I now know the answer.
+Final Answer: {observation}
+"""
 ```
 
 ---
 
 **Cause**
 
-Explain why the bug happens.
-
-Example:
-
-The parser assumes the LLM response always contains "Action:" exactly, but some responses may use different formatting.
+Mock model did not detect Observation context. The model was not checking whether an "Observation:" block was present in the conversation, so it kept invoking tools in a loop instead of concluding with a final answer.
 
 ---
 
 **Solution**
 
-Explain how the bug was fixed.
-
-Example:
-
-Add robust parsing logic using regex to detect tool invocation.
+Added logic to detect `"Observation:"` in the response context and return a Final Answer when it is present, breaking the infinite tool-action loop.
 
 ---
 
 **Status**
 
-Possible values:
-
-* Open
-* In Progress
-* Fixed
-* Verified
-
-Example:
-
-```id="f4"
+```
 Status: Fixed
 ```
 
@@ -112,7 +91,7 @@ When adding new bugs:
 
 Example:
 
-```id="f5"
+```
 BUG-002
 BUG-003
 BUG-004
