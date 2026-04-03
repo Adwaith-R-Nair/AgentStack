@@ -1,3 +1,4 @@
+import re
 from .base_model import BaseModel
 
 
@@ -18,9 +19,11 @@ Thought: I now know the answer.
 Final Answer: {observation}
 """
 
-        # If math question
-        if "*" in prompt:
-            expression = prompt.split("What is")[-1].strip().replace("?", "")
+        # detect simple math expression
+        math_match = re.search(r"(\d+\s*[\+\-\*\/]\s*\d+)", prompt)
+
+        if math_match:
+            expression = math_match.group(1)
 
             return f"""
 Thought: I should calculate this.
