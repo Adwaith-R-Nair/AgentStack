@@ -4,17 +4,21 @@ from .base_model import BaseModel
 class MockModel(BaseModel):
     """
     Mock model used for development and testing.
-
-    Instead of calling a real LLM, this model returns
-    predefined reasoning outputs.
+    Simulates basic reasoning behaviour.
     """
 
     def generate(self, prompt: str) -> str:
-        """
-        Simulate a model response.
-        """
 
-        # simple simulation logic
+        # If observation already exists, produce final answer
+        if "Observation:" in prompt:
+            observation = prompt.split("Observation:")[-1].strip()
+
+            return f"""
+Thought: I now know the answer.
+Final Answer: {observation}
+"""
+
+        # If math question
         if "*" in prompt:
             expression = prompt.split("What is")[-1].strip().replace("?", "")
 
