@@ -1,0 +1,6 @@
+[project]
+name = "agentstack"
+version = "0.1.0"
+
+[project.scripts]
+agentstack = "agentstack.core.runner:app"
