@@ -1,2 +1,0 @@
-[console_scripts]
-agentstack = agentstack.core.runner:app
