@@ -3,3 +3,4 @@ typer
 rich
 pydantic
 python-dotenv
+ddgs

@@ -32,6 +32,7 @@ Each bug entry should include:
 | BUG-010 | MockModel produced incorrect outputs after introducing structured prompts | `agentstack/models/mock_model.py` | — | MockModel expected simple prompts and failed to parse structured agent prompts | Updated MockModel to extract the user task using regex | Resolved |
 | BUG-011 | MockModel incorrectly detected Observation due to prompt template instructions | `agentstack/models/mock_model.py` | — | Observation detection logic matched the instruction section of the prompt | Updated regex logic to detect only actual observation values returned by tools | Resolved |
 | BUG-012 | User messages were not stored in conversation memory | `agentstack/core/agent.py` | — | `add_user_message()` was referenced but never called | Updated `agent.py` to call `self.memory.add_user_message(task)` | Resolved |
+| BUG-013 | `WebSearchTool` returned no results and produced a runtime warning | `agentstack/tools/web_search.py`, `requirements.txt` | — | `duckduckgo_search` package was deprecated and replaced by `ddgs` | Updated `WebSearchTool` and `requirements.txt` to use `ddgs` | Resolved |
 
 ---
 
@@ -689,6 +690,81 @@ def run(self, task: str) -> str:
 **Solution**
 
 Added `self.memory.add_user_message(task)` at the start of `agent.run()`, before `build_prompt()` is called, so the user message is captured in memory and available to subsequent turns via `get_history()`.
+
+---
+
+**Status**
+
+```
+Status: Resolved
+```
+
+---
+
+## Bug ID: BUG-013
+
+**Description**
+
+`WebSearchTool` returned no results and produced a runtime warning on every invocation. Web search queries passed through the agent silently failed, leaving the reasoning loop with empty observations.
+
+---
+
+**File**
+
+```
+agentstack/tools/web_search.py
+requirements.txt
+```
+
+---
+
+**Code Snippet**
+
+The fix — switching from the deprecated `duckduckgo_search` to `ddgs`:
+
+```python
+# BEFORE
+from duckduckgo_search import ddg
+
+class WebSearchTool(BaseTool):
+    name: str = "web_search"
+    description: str = "Searches the web for a given query."
+
+    def run(self, query: str) -> str:
+        results = ddg(query, max_results=3)
+        return str(results)
+
+# AFTER
+from ddgs import DDGS
+
+class WebSearchTool(BaseTool):
+    name: str = "web_search"
+    description: str = "Searches the web for a given query."
+
+    def run(self, query: str) -> str:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=3))
+        return str(results)
+```
+
+`requirements.txt` updated:
+
+```diff
+- duckduckgo_search
++ ddgs
+```
+
+---
+
+**Cause**
+
+The `duckduckgo_search` package was deprecated upstream and its `ddg()` function no longer returned results, instead emitting a runtime deprecation warning. The replacement package `ddgs` exposes a different API via the `DDGS` context manager.
+
+---
+
+**Solution**
+
+Replaced the `duckduckgo_search` import with `ddgs`, updated `WebSearchTool.run()` to use the `DDGS` context manager with `ddgs.text()`, and updated `requirements.txt` to reference `ddgs` instead of the deprecated package.
 
 ---
 
