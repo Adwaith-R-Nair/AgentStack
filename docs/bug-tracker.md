@@ -23,6 +23,7 @@ Each bug entry should include:
 | BUG-001 | MockModel kept repeating tool actions and never produced a final answer | `agentstack/models/mock_model.py` | — | Mock model did not detect Observation context | Added logic to detect "Observation:" and return Final Answer | Fixed |
 | BUG-002 | `agentstack.egg-info` folder was accidentally committed | `.gitignore` | — | `pip install -e .` generates egg-info metadata that was not excluded | Added `*.egg-info` to `.gitignore` and removed folder from git tracking | Resolved |
 | BUG-003 | Tools previously required manual registration | `agentstack/tools/registry.py` | — | `ToolRegistry` lacked a dynamic discovery mechanism | Implemented `auto_discover()` using `pkgutil` and `importlib` | Resolved |
+| BUG-004 | No CLI visibility for available tools | `agentstack/cli/main.py` | — | `ToolRegistry` auto-discovery worked internally but tools could not be listed via CLI | Added `agentstack tools` CLI command to list all discovered tools | Resolved |
 
 ---
 
@@ -178,6 +179,65 @@ def auto_discover(self):
 **Solution**
 
 Implemented `auto_discover()` in `ToolRegistry` using `pkgutil.iter_modules()` to walk the `agentstack/tools/` package and `importlib.import_module()` to load each module, automatically registering any callable marked with `is_tool`.
+
+---
+
+**Status**
+
+```
+Status: Resolved
+```
+
+---
+
+## Bug ID: BUG-004
+
+**Description**
+
+No CLI visibility for available tools. Even though `ToolRegistry` was successfully auto-discovering tools internally, there was no way to inspect which tools were loaded without digging into the source code.
+
+---
+
+**File**
+
+```
+agentstack/cli/main.py
+```
+
+---
+
+**Code Snippet**
+
+The fix — `agentstack tools` subcommand that prints all discovered tools:
+
+```python
+@cli.command()
+def tools():
+    """List all available tools discovered by ToolRegistry."""
+    registry = ToolRegistry()
+    registry.auto_discover()
+    discovered = registry.list_tools()
+
+    if not discovered:
+        click.echo("No tools found.")
+        return
+
+    click.echo("Available tools:")
+    for tool in discovered:
+        click.echo(f"  - {tool.name}: {tool.description}")
+```
+
+---
+
+**Cause**
+
+`ToolRegistry.auto_discover()` populated the registry correctly, but no CLI surface exposed the registry's contents. Developers had no way to verify which tools were loaded at runtime without adding debug print statements manually.
+
+---
+
+**Solution**
+
+Added an `agentstack tools` subcommand to the CLI that calls `auto_discover()` and prints all registered tools with their names and descriptions.
 
 ---
 
