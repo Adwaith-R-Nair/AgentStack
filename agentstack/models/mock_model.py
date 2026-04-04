@@ -1,31 +1,37 @@
 import re
-from .base_model import BaseModel
+from agentstack.models.base_model import BaseModel
 
 
 class MockModel(BaseModel):
     """
-    Mock model used for development and testing.
-    Simulates basic reasoning behaviour.
+    Mock LLM used for testing AgentStack without real APIs.
     """
 
     def generate(self, prompt: str) -> str:
 
-        # If observation already exists, produce final answer
-        if "Observation:" in prompt:
-            observation = prompt.split("Observation:")[-1].strip()
+        # Find real observation values like "Observation: 242"
+        observation_matches = re.findall(r"Observation:\s*(\d+)", prompt)
+
+        if observation_matches:
+            last_obs = observation_matches[-1]
 
             return f"""
 Thought: I now know the answer.
-Final Answer: {observation}
+Final Answer: {last_obs}
 """
 
-        # detect simple math expression
-        math_match = re.search(r"(\d+\s*[\+\-\*\/]\s*\d+)", prompt)
+        # Extract user task
+        task_match = re.search(r"User Task:\s*(.*)", prompt)
 
-        if math_match:
-            expression = math_match.group(1)
+        if task_match:
+            task = task_match.group(1)
 
-            return f"""
+            math_match = re.search(r"(\d+\s*[\+\-\*\/]\s*\d+)", task)
+
+            if math_match:
+                expression = math_match.group(1)
+
+                return f"""
 Thought: I should calculate this.
 Action: calculator
 Action Input: {expression}

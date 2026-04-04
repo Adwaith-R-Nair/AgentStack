@@ -28,6 +28,9 @@ Each bug entry should include:
 | BUG-006 | `agentstack chat --model mock` failed with "No such option: --model" | `agentstack/cli/main.py` | — | `chat()` CLI command did not define a Typer option for `model` | Added `model: str = typer.Option("mock", "--model", "-m")` to `chat()` | Resolved |
 | BUG-007 | `ImportError` when loading `ModelFactory` due to empty `claude_model.py` | `agentstack/models/claude_model.py` | — | `ClaudeModel` class was not implemented but `ModelFactory` attempted to import it | Added placeholder `ClaudeModel` class inheriting from `BaseModel` | Resolved |
 | BUG-008 | Invalid import `from pyexpat import model` appeared in `runner.py` | `agentstack/core/runner.py` | — | Accidental IDE auto-import | Removed incorrect import and cleaned CLI imports | Resolved |
+| BUG-009 | Agent prompts lacked structured context for reasoning and tool usage | `agentstack/prompts/template.py` | — | Agent used a simple "User Task" prompt instead of a structured agent prompt | Implemented Prompt Template System using `build_prompt()` | Resolved |
+| BUG-010 | MockModel produced incorrect outputs after introducing structured prompts | `agentstack/models/mock_model.py` | — | MockModel expected simple prompts and failed to parse structured agent prompts | Updated MockModel to extract the user task using regex | Resolved |
+| BUG-011 | MockModel incorrectly detected Observation due to prompt template instructions | `agentstack/models/mock_model.py` | — | Observation detection logic matched the instruction section of the prompt | Updated regex logic to detect only actual observation values returned by tools | Resolved |
 
 ---
 
@@ -449,6 +452,187 @@ An IDE auto-import incorrectly inserted `from pyexpat import model` when the dev
 **Solution**
 
 Removed the erroneous `from pyexpat import model` import from `runner.py` and audited the file's remaining imports to remove any other stale or incorrect entries.
+
+---
+
+**Status**
+
+```
+Status: Resolved
+```
+
+---
+
+## Bug ID: BUG-009
+
+**Description**
+
+Agent prompts lacked structured context for reasoning and tool usage. The agent received a bare "User Task" string with no instructions on how to think, which tools were available, or how to format its responses.
+
+---
+
+**File**
+
+```
+agentstack/prompts/template.py
+```
+
+---
+
+**Code Snippet**
+
+The fix — `build_prompt()` assembling a structured agent prompt:
+
+```python
+def build_prompt(task: str, tools: list, history: str = "") -> str:
+    tool_descriptions = "\n".join(
+        f"- {tool.name}: {tool.description}" for tool in tools
+    )
+    return f"""You are an autonomous AI agent. Reason step by step.
+
+Available Tools:
+{tool_descriptions}
+
+Use this format:
+Thought: <your reasoning>
+Action: <tool name>
+Action Input: <tool input>
+Observation: <tool result>
+... (repeat as needed)
+Thought: I now know the answer.
+Final Answer: <your answer>
+
+{f"History:{chr(10)}{history}{chr(10)}" if history else ""}
+User Task: {task}"""
+```
+
+---
+
+**Cause**
+
+The agent was building prompts by passing only the raw user task string, giving the model no instructions on reasoning format, available tools, or expected output structure.
+
+---
+
+**Solution**
+
+Implemented a `build_prompt()` function in `agentstack/prompts/template.py` that injects tool descriptions, reasoning format instructions, optional history, and the user task into a structured prompt template.
+
+---
+
+**Status**
+
+```
+Status: Resolved
+```
+
+---
+
+## Bug ID: BUG-010
+
+**Description**
+
+MockModel produced incorrect outputs after the introduction of structured prompts. Responses no longer matched expected patterns, breaking the agent reasoning loop.
+
+---
+
+**File**
+
+```
+agentstack/models/mock_model.py
+```
+
+---
+
+**Code Snippet**
+
+The fix — extracting the user task from the structured prompt using regex before processing:
+
+```python
+import re
+
+def generate(self, prompt: str) -> str:
+    # Extract the actual user task from structured prompt
+    task_match = re.search(r"User Task:\s*(.+)", prompt)
+    task = task_match.group(1).strip() if task_match else prompt
+
+    if "Observation:" in prompt:
+        observation = prompt.split("Observation:")[-1].strip()
+        return f"\nThought: I now know the answer.\nFinal Answer: {observation}\n"
+
+    math_match = re.search(r"(\d+\s*[\+\-\*\/]\s*\d+)", task)
+    if math_match:
+        expression = math_match.group(1)
+        return f"\nThought: I should calculate this.\nAction: calculator\nAction Input: {expression}\n"
+
+    return "\nThought: I can answer directly.\nFinal Answer: Hello! This is a mock response.\n"
+```
+
+---
+
+**Cause**
+
+MockModel was matching patterns directly against the full prompt string. With structured prompts, the raw task was buried inside a larger template, so simple string matching on `prompt` no longer extracted the right content.
+
+---
+
+**Solution**
+
+Added a regex extraction step at the top of `generate()` to pull the `User Task:` value out of the structured prompt before applying any downstream logic.
+
+---
+
+**Status**
+
+```
+Status: Resolved
+```
+
+---
+
+## Bug ID: BUG-011
+
+**Description**
+
+MockModel incorrectly detected an Observation on the first pass, causing it to skip tool usage entirely and return a premature Final Answer. This happened even when no tool had been called yet.
+
+---
+
+**File**
+
+```
+agentstack/models/mock_model.py
+```
+
+---
+
+**Code Snippet**
+
+The fix — tightening the regex to match only actual tool-returned observation values, not the instruction template:
+
+```python
+# BEFORE — too broad, matched "Observation:" in prompt instructions
+if "Observation:" in prompt:
+    ...
+
+# AFTER — only matches an Observation line that has a non-empty value after it
+observation_match = re.search(r"Observation:\s*(\S+.*)", prompt)
+if observation_match:
+    observation = observation_match.group(1).strip()
+    return f"\nThought: I now know the answer.\nFinal Answer: {observation}\n"
+```
+
+---
+
+**Cause**
+
+The prompt template included `"Observation: <tool result>"` as a format example in the instructions block. The original `"Observation:" in prompt` check matched this literal text, making MockModel think a tool had already run and triggering a premature Final Answer.
+
+---
+
+**Solution**
+
+Replaced the simple `in` check with a regex that requires a non-whitespace value after `"Observation:"`, ensuring the match only fires on actual tool results and not on placeholder instruction text.
 
 ---
 

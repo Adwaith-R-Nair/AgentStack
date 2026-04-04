@@ -1,6 +1,7 @@
 import re
 
 from agentstack.tools.registry import ToolRegistry
+from agentstack.prompts.template import build_prompt
 
 
 class Agent:
@@ -28,7 +29,7 @@ class Agent:
         Execute an agent task.
         """
 
-        context = f"User Task: {task}\n"
+        context = build_prompt(task, list(self.registry.tools.values())) + "\n"
 
         for step in range(self.max_iterations):
 
