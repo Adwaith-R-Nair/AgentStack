@@ -2,6 +2,7 @@ import re
 
 from agentstack.tools.registry import ToolRegistry
 from agentstack.prompts.template import build_prompt
+from agentstack.memory.memory import ConversationMemory
 
 
 class Agent:
@@ -13,6 +14,7 @@ class Agent:
     def __init__(self, model, tools=None, max_iterations=5):
         self.model = model
         self.registry = ToolRegistry()
+        self.memory = ConversationMemory()
 
         # auto-discover tools
         self.registry.auto_discover()
@@ -29,7 +31,15 @@ class Agent:
         Execute an agent task.
         """
 
-        context = build_prompt(task, list(self.registry.tools.values())) + "\n"
+        self.memory.add_user_message(task)
+        memory_context = self.memory.get_context()
+
+        context = build_prompt(task, list(self.registry.tools.values()))
+
+        if memory_context:
+            context = f"{memory_context}\n\n{context}"
+
+        context += "\n"
 
         for step in range(self.max_iterations):
 
@@ -41,6 +51,7 @@ class Agent:
             # check if final answer
             if "Final Answer:" in response:
                 final = response.split("Final Answer:")[-1].strip()
+                self.memory.add_agent_message(final)
                 return final
 
             # detect tool action

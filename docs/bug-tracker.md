@@ -31,6 +31,7 @@ Each bug entry should include:
 | BUG-009 | Agent prompts lacked structured context for reasoning and tool usage | `agentstack/prompts/template.py` | — | Agent used a simple "User Task" prompt instead of a structured agent prompt | Implemented Prompt Template System using `build_prompt()` | Resolved |
 | BUG-010 | MockModel produced incorrect outputs after introducing structured prompts | `agentstack/models/mock_model.py` | — | MockModel expected simple prompts and failed to parse structured agent prompts | Updated MockModel to extract the user task using regex | Resolved |
 | BUG-011 | MockModel incorrectly detected Observation due to prompt template instructions | `agentstack/models/mock_model.py` | — | Observation detection logic matched the instruction section of the prompt | Updated regex logic to detect only actual observation values returned by tools | Resolved |
+| BUG-012 | User messages were not stored in conversation memory | `agentstack/core/agent.py` | — | `add_user_message()` was referenced but never called | Updated `agent.py` to call `self.memory.add_user_message(task)` | Resolved |
 
 ---
 
@@ -633,6 +634,61 @@ The prompt template included `"Observation: <tool result>"` as a format example 
 **Solution**
 
 Replaced the simple `in` check with a regex that requires a non-whitespace value after `"Observation:"`, ensuring the match only fires on actual tool results and not on placeholder instruction text.
+
+---
+
+**Status**
+
+```
+Status: Resolved
+```
+
+---
+
+## Bug ID: BUG-012
+
+**Description**
+
+User messages were not being stored in conversation memory. The agent processed tasks correctly but the memory module had no record of what the user had asked, breaking any context-dependent behaviour across turns.
+
+---
+
+**File**
+
+```
+agentstack/core/agent.py
+```
+
+---
+
+**Code Snippet**
+
+The fix — calling `add_user_message()` before running the reasoning loop:
+
+```python
+def run(self, task: str) -> str:
+    # Store user message in memory before processing
+    self.memory.add_user_message(task)
+
+    prompt = build_prompt(
+        task=task,
+        tools=self.registry.list_tools(),
+        history=self.memory.get_history()
+    )
+    return self.runner.run(prompt)
+```
+
+---
+
+**Cause**
+
+`add_user_message()` was defined on the memory module and referenced in comments/docs, but the call was never actually placed inside `agent.py`'s `run()` method. As a result, every user turn was silently dropped from memory.
+
+---
+
+**Solution**
+
+Added `self.memory.add_user_message(task)` at the start of `agent.run()`, before `build_prompt()` is called, so the user message is captured in memory and available to subsequent turns via `get_history()`.
 
 ---
 
