@@ -24,6 +24,7 @@ Each bug entry should include:
 | BUG-002 | `agentstack.egg-info` folder was accidentally committed | `.gitignore` | — | `pip install -e .` generates egg-info metadata that was not excluded | Added `*.egg-info` to `.gitignore` and removed folder from git tracking | Resolved |
 | BUG-003 | Tools previously required manual registration | `agentstack/tools/registry.py` | — | `ToolRegistry` lacked a dynamic discovery mechanism | Implemented `auto_discover()` using `pkgutil` and `importlib` | Resolved |
 | BUG-004 | No CLI visibility for available tools | `agentstack/cli/main.py` | — | `ToolRegistry` auto-discovery worked internally but tools could not be listed via CLI | Added `agentstack tools` CLI command to list all discovered tools | Resolved |
+| BUG-005 | `file_reader` tool did not appear in `agentstack tools` | `agentstack/tools/file_reader.py` | — | `file_reader.py` existed but contained no `BaseTool` implementation | Implemented `FileReaderTool` class inheriting from `BaseTool` | Resolved |
 
 ---
 
@@ -238,6 +239,60 @@ def tools():
 **Solution**
 
 Added an `agentstack tools` subcommand to the CLI that calls `auto_discover()` and prints all registered tools with their names and descriptions.
+
+---
+
+**Status**
+
+```
+Status: Resolved
+```
+
+---
+
+## Bug ID: BUG-005
+
+**Description**
+
+`file_reader` tool did not appear in `agentstack tools`. Despite the file existing in the tools directory, it was silently skipped during auto-discovery and never showed up in the CLI listing.
+
+---
+
+**File**
+
+```
+agentstack/tools/file_reader.py
+```
+
+---
+
+**Code Snippet**
+
+The fix — `FileReaderTool` properly inheriting from `BaseTool`:
+
+```python
+from agentstack.tools.base_tool import BaseTool
+
+class FileReaderTool(BaseTool):
+    name: str = "file_reader"
+    description: str = "Reads the contents of a file at a given path."
+
+    def run(self, path: str) -> str:
+        with open(path, "r") as f:
+            return f.read()
+```
+
+---
+
+**Cause**
+
+`file_reader.py` existed in the tools directory but contained no class inheriting from `BaseTool`. Since `auto_discover()` scans for `BaseTool` subclasses, the file was loaded but nothing in it matched the discovery criteria, so it was silently ignored.
+
+---
+
+**Solution**
+
+Implemented `FileReaderTool` as a proper `BaseTool` subclass with `name`, `description`, and a `run()` method, making it visible to `auto_discover()` and therefore listable via `agentstack tools`.
 
 ---
 
