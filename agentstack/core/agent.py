@@ -13,6 +13,10 @@ class Agent:
         self.model = model
         self.registry = ToolRegistry()
 
+        # auto-discover tools
+        self.registry.auto_discover()
+
+        # register additional tools if provided
         if tools:
             for tool in tools:
                 self.registry.register(tool)

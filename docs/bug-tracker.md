@@ -22,6 +22,7 @@ Each bug entry should include:
 | ------ | ----------- | ---- | ------------ | ----- | -------- | ------ |
 | BUG-001 | MockModel kept repeating tool actions and never produced a final answer | `agentstack/models/mock_model.py` | — | Mock model did not detect Observation context | Added logic to detect "Observation:" and return Final Answer | Fixed |
 | BUG-002 | `agentstack.egg-info` folder was accidentally committed | `.gitignore` | — | `pip install -e .` generates egg-info metadata that was not excluded | Added `*.egg-info` to `.gitignore` and removed folder from git tracking | Resolved |
+| BUG-003 | Tools previously required manual registration | `agentstack/tools/registry.py` | — | `ToolRegistry` lacked a dynamic discovery mechanism | Implemented `auto_discover()` using `pkgutil` and `importlib` | Resolved |
 
 ---
 
@@ -121,6 +122,62 @@ echo "*.egg-info/" >> .gitignore
 git rm -r --cached agentstack.egg-info
 git commit -m "fix: remove egg-info from tracking, update .gitignore"
 ```
+
+---
+
+**Status**
+
+```
+Status: Resolved
+```
+
+---
+
+## Bug ID: BUG-003
+
+**Description**
+
+Tools previously required manual registration in `ToolRegistry`. Every new tool had to be explicitly imported and registered, making the process error-prone and not scalable.
+
+---
+
+**File**
+
+```
+agentstack/tools/registry.py
+```
+
+---
+
+**Code Snippet**
+
+The fix — `auto_discover()` using `pkgutil` and `importlib` to automatically find and register all tools:
+
+```python
+import pkgutil
+import importlib
+import agentstack.tools as tools_pkg
+
+def auto_discover(self):
+    for finder, name, ispkg in pkgutil.iter_modules(tools_pkg.__path__, tools_pkg.__name__ + "."):
+        module = importlib.import_module(name)
+        for attr_name in dir(module):
+            attr = getattr(module, attr_name)
+            if callable(attr) and hasattr(attr, "is_tool"):
+                self.register(attr)
+```
+
+---
+
+**Cause**
+
+`ToolRegistry` had no dynamic discovery mechanism. Tools had to be manually imported and registered, meaning any newly added tool module would be silently ignored unless explicitly wired up.
+
+---
+
+**Solution**
+
+Implemented `auto_discover()` in `ToolRegistry` using `pkgutil.iter_modules()` to walk the `agentstack/tools/` package and `importlib.import_module()` to load each module, automatically registering any callable marked with `is_tool`.
 
 ---
 

@@ -7,11 +7,8 @@ def main():
 
     model = MockModel()
 
-    calculator = CalculatorTool()
-
     agent = Agent(
-        model=model,
-        tools=[calculator]
+        model=model
     )
 
     result = agent.run("What is 45 * 67?")
