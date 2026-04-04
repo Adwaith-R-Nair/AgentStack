@@ -1,29 +1,34 @@
 import typer
 import subprocess
 
-from agentstack.models.mock_model import MockModel
-from agentstack.tools.math.calculator import CalculatorTool
 from agentstack.core.agent import Agent
 from agentstack.tools.registry import ToolRegistry
+from agentstack.models.factory import ModelFactory
 
 app = typer.Typer()
 
 
 @app.command()
-def chat():
+def chat(
+    model: str = typer.Option(
+        "mock",
+        "--model",
+        "-m",
+        help="Model to use (mock or claude)"
+    )
+):
     """
     Start interactive AgentStack chat session.
     """
 
-    model = MockModel()
-    calculator = CalculatorTool()
+    selected_model = ModelFactory.create(model)
 
     agent = Agent(
-        model=model,
-        tools=[calculator]
+        model=selected_model
     )
 
     print("\nAgentStack Chat")
+    print(f"Using model: {model}")
     print("Type 'exit' to quit.\n")
 
     while True:

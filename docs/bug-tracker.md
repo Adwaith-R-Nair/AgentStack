@@ -25,6 +25,9 @@ Each bug entry should include:
 | BUG-003 | Tools previously required manual registration | `agentstack/tools/registry.py` | — | `ToolRegistry` lacked a dynamic discovery mechanism | Implemented `auto_discover()` using `pkgutil` and `importlib` | Resolved |
 | BUG-004 | No CLI visibility for available tools | `agentstack/cli/main.py` | — | `ToolRegistry` auto-discovery worked internally but tools could not be listed via CLI | Added `agentstack tools` CLI command to list all discovered tools | Resolved |
 | BUG-005 | `file_reader` tool did not appear in `agentstack tools` | `agentstack/tools/file_reader.py` | — | `file_reader.py` existed but contained no `BaseTool` implementation | Implemented `FileReaderTool` class inheriting from `BaseTool` | Resolved |
+| BUG-006 | `agentstack chat --model mock` failed with "No such option: --model" | `agentstack/cli/main.py` | — | `chat()` CLI command did not define a Typer option for `model` | Added `model: str = typer.Option("mock", "--model", "-m")` to `chat()` | Resolved |
+| BUG-007 | `ImportError` when loading `ModelFactory` due to empty `claude_model.py` | `agentstack/models/claude_model.py` | — | `ClaudeModel` class was not implemented but `ModelFactory` attempted to import it | Added placeholder `ClaudeModel` class inheriting from `BaseModel` | Resolved |
+| BUG-008 | Invalid import `from pyexpat import model` appeared in `runner.py` | `agentstack/core/runner.py` | — | Accidental IDE auto-import | Removed incorrect import and cleaned CLI imports | Resolved |
 
 ---
 
@@ -293,6 +296,159 @@ class FileReaderTool(BaseTool):
 **Solution**
 
 Implemented `FileReaderTool` as a proper `BaseTool` subclass with `name`, `description`, and a `run()` method, making it visible to `auto_discover()` and therefore listable via `agentstack tools`.
+
+---
+
+**Status**
+
+```
+Status: Resolved
+```
+
+---
+
+## Bug ID: BUG-006
+
+**Description**
+
+`agentstack chat --model mock` failed with `"No such option: --model"`. The `--model` flag was not recognised by the CLI, making it impossible to select a model at runtime.
+
+---
+
+**File**
+
+```
+agentstack/cli/main.py
+```
+
+---
+
+**Code Snippet**
+
+The fix — adding a Typer `Option` for `model` in the `chat()` command:
+
+```python
+@app.command()
+def chat(
+    model: str = typer.Option("mock", "--model", "-m", help="Model to use for the agent.")
+):
+    """Start an interactive chat session with the agent."""
+    agent = Agent(model=model)
+    agent.run()
+```
+
+---
+
+**Cause**
+
+The `chat()` CLI command was defined without any Typer options, so passing `--model` raised an immediate `"No such option"` error before the agent could be initialised.
+
+---
+
+**Solution**
+
+Updated the `chat()` function signature to include `model: str = typer.Option("mock", "--model", "-m")`, defaulting to the mock model while allowing the caller to override it.
+
+---
+
+**Status**
+
+```
+Status: Resolved
+```
+
+---
+
+## Bug ID: BUG-007
+
+**Description**
+
+An `ImportError` occurred when loading `ModelFactory` due to an empty `claude_model.py`. The error prevented the entire models module from loading correctly.
+
+---
+
+**File**
+
+```
+agentstack/models/claude_model.py
+```
+
+---
+
+**Code Snippet**
+
+The fix — placeholder `ClaudeModel` inheriting from `BaseModel`:
+
+```python
+from agentstack.models.base_model import BaseModel
+
+class ClaudeModel(BaseModel):
+    """
+    Placeholder ClaudeModel. Full Anthropic API integration to be implemented.
+    """
+
+    def generate(self, prompt: str) -> str:
+        raise NotImplementedError("ClaudeModel is not yet implemented.")
+```
+
+---
+
+**Cause**
+
+`claude_model.py` was an empty file. `ModelFactory` attempted to import `ClaudeModel` from it at startup, causing an `ImportError` since the class did not exist.
+
+---
+
+**Solution**
+
+Added a minimal `ClaudeModel` placeholder class inheriting from `BaseModel` with a `generate()` method that raises `NotImplementedError`, satisfying the import and deferring full implementation.
+
+---
+
+**Status**
+
+```
+Status: Resolved
+```
+
+---
+
+## Bug ID: BUG-008
+
+**Description**
+
+An invalid import `from pyexpat import model` appeared in `runner.py`, causing an `ImportError` on startup and breaking the agent's core reasoning loop.
+
+---
+
+**File**
+
+```
+agentstack/core/runner.py
+```
+
+---
+
+**Code Snippet**
+
+The offending line that was removed:
+
+```python
+# BEFORE (incorrect — accidental IDE auto-import)
+from pyexpat import model
+```
+
+---
+
+**Cause**
+
+An IDE auto-import incorrectly inserted `from pyexpat import model` when the developer typed `model` in the editor. `pyexpat` is a standard library XML parser module and has no relation to AgentStack's model layer.
+
+---
+
+**Solution**
+
+Removed the erroneous `from pyexpat import model` import from `runner.py` and audited the file's remaining imports to remove any other stale or incorrect entries.
 
 ---
 
